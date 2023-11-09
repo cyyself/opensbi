@@ -768,6 +768,19 @@ int sbi_domain_init(struct sbi_scratch *scratch, u32 cold_hartid)
 
 	root.fw_region_inited = true;
 
+	// disable 0-2M to test BOOM PMP BUG
+	sbi_domain_memregion_init(0, 2*1024*1024,
+				  0,
+				  &root_memregs[root_memregs_count++]);
+
+	// add 0x81000000 + 4KB to test BOOM PMP bug
+	// The corresponding physical address will be mapped as a 2MB superpage in Linux Kernel
+	sbi_domain_memregion_init(0x81000000UL, 4096,
+				  (SBI_DOMAIN_MEMREGION_SU_READABLE |
+				   SBI_DOMAIN_MEMREGION_SU_WRITABLE |
+				   SBI_DOMAIN_MEMREGION_SU_EXECUTABLE),
+				  &root_memregs[root_memregs_count++]);
+
 	/*
 	 * Allow SU RWX on rest of the memory region. Since pmp entries
 	 * have implicit priority on index, previous entries will
