@@ -26,6 +26,9 @@ static int thead_generic_early_init(bool cold_boot,
 
 	if (quirks->errata & THEAD_QUIRK_ERRATA_TLB_FLUSH)
 		thead_register_tlb_flush_trap_handler();
+	
+	if (quirks->errata & THEAD_QUIRK_DISABLE_MAEE)
+		thead_disable_maee();
 
 	return 0;
 }
@@ -41,8 +44,13 @@ static struct thead_generic_quirks thead_th1520_quirks = {
 	.errata = THEAD_QUIRK_ERRATA_TLB_FLUSH,
 };
 
+static struct thead_generic_quirks thead_c908_quirks = {
+	.errata = THEAD_QUIRK_DISABLE_MAEE,
+};
+
 static const struct fdt_match thead_generic_match[] = {
 	{ .compatible = "thead,th1520", .data = &thead_th1520_quirks },
+	{ .compatible = "canaan,kendryte-k230", .data = &thead_c908_quirks },
 	{ },
 };
 
