@@ -268,6 +268,8 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 	ulong mtval = csr_read(CSR_MTVAL), mtval2 = 0, mtinst = 0;
 	struct sbi_trap_info trap;
 
+	sbi_printf("[Debug] sbi_trap_handler mcause=%lx, mtval=%lx, mepc=%lx\n", mcause, mtval, regs->mepc);
+
 	if (misa_extension('H')) {
 		mtval2 = csr_read(CSR_MTVAL2);
 		mtinst = csr_read(CSR_MTINST);
