@@ -377,7 +377,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
 	pmp_disable(SBI_SMEPMP_RESV_ENTRY);
 
 	/* Program M-only regions when MML is not set. */
-	pmp_idx = 0;
+	pmp_idx = sbi_hart_pmp_reserved(scratch);
 	sbi_domain_for_each_memregion(dom, reg) {
 		/* Skip reserved entry */
 		if (pmp_idx == SBI_SMEPMP_RESV_ENTRY)
@@ -403,7 +403,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
 	csr_set(CSR_MSECCFG, MSECCFG_MML);
 
 	/* Program shared and SU-only regions */
-	pmp_idx = 0;
+	pmp_idx = sbi_hart_pmp_reserved(scratch);
 	sbi_domain_for_each_memregion(dom, reg) {
 		/* Skip reserved entry */
 		if (pmp_idx == SBI_SMEPMP_RESV_ENTRY)
@@ -440,7 +440,7 @@ static int sbi_hart_oldpmp_configure(struct sbi_scratch *scratch,
 {
 	struct sbi_domain_memregion *reg;
 	struct sbi_domain *dom = sbi_domain_thishart_ptr();
-	unsigned int pmp_idx = 0;
+	unsigned int pmp_idx = sbi_hart_pmp_reserved(scratch);
 	unsigned int pmp_flags;
 	unsigned long pmp_addr;
 
