@@ -535,7 +535,8 @@ int sbi_hart_pmp_configure(struct sbi_scratch *scratch)
 	pmp_bits = sbi_hart_pmp_addrbits(scratch) - 1;
 	pmp_addr_max = (1UL << pmp_bits) | ((1UL << pmp_bits) - 1);
 
-	if (sbi_hart_has_extension(scratch, SBI_HART_EXT_SMEPMP))
+	if (sbi_hart_has_extension(scratch, SBI_HART_EXT_SMEPMP) &&
+		(csr_read(CSR_MSECCFG) & MSECCFG_MML || !sbi_hart_pmp_reserved(scratch)))
 		rc = sbi_hart_smepmp_configure(scratch, pmp_count,
 						pmp_log2gran, pmp_addr_max);
 	else
