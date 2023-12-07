@@ -259,6 +259,14 @@ unsigned int sbi_hart_mhpm_mask(struct sbi_scratch *scratch)
 	return hfeatures->mhpm_mask;
 }
 
+unsigned int sbi_hart_pmp_reserved(struct sbi_scratch *scratch)
+{
+	struct sbi_hart_features *hfeatures =
+			sbi_scratch_offset_ptr(scratch, hart_features_offset);
+
+	return hfeatures->pmp_reserved;
+}
+
 unsigned int sbi_hart_pmp_count(struct sbi_scratch *scratch)
 {
 	struct sbi_hart_features *hfeatures =
@@ -741,6 +749,41 @@ void sbi_hart_get_extensions_str(struct sbi_scratch *scratch,
 		sbi_strncpy(extensions_str, "none", nestr);
 }
 
+static unsigned long hart_pmp_probe_reserved(unsigned int nr_pmps)
+{
+	unsigned long pmpcfg;
+	int n, pmpcfg_csr_idx = -1;
+	int pmpcfg_csr, pmpcfg_shift;
+	int pmpcfg_locked = 0;
+
+	/* Find the maximum index after the locked pmp. */
+	
+	for (n = 0; n < nr_pmps; n++) {
+		/* calculate PMP register and offset */
+#if __riscv_xlen == 32
+		pmpcfg_csr   = CSR_PMPCFG0 + (n >> 2);
+		pmpcfg_shift = (n & 3) << 3;
+#elif __riscv_xlen == 64
+		pmpcfg_csr   = (CSR_PMPCFG0 + (n >> 2)) & ~1;
+		pmpcfg_shift = (n & 7) << 3;
+#else
+# error "Unexpected __riscv_xlen"
+#endif
+
+		/* Load a pmpcfg from CSR */
+		if (pmpcfg_csr != pmpcfg_csr_idx) {
+			pmpcfg = csr_read_num(pmpcfg_csr);
+		}
+
+		/* Check pmpcfg[n] Lock Status */
+		if ( (pmpcfg >> pmpcfg_shift) & PMP_L) {
+			pmpcfg_locked = MAX(pmpcfg_locked, n + 1);
+		}
+	}
+
+	return pmpcfg_locked;
+}
+
 static unsigned long hart_pmp_get_allowed_addr(void)
 {
 	unsigned long val = 0;
@@ -871,6 +914,14 @@ static int hart_detect_features(struct sbi_scratch *scratch)
 	/* Detect number of PMP regions. At least PMPADDR0 should be implemented*/
 	__check_csr_64(CSR_PMPADDR0, true, 0, pmp_count, __pmp_count_probed);
 __pmp_count_probed:
+
+	/**
+	 * Find the maximum index of the PMP entry that is locked before OpenSBI
+	 * starts and reserve the entries that index less than or equal to the
+	 * locked entry.
+	 */
+	hfeatures->pmp_reserved = hart_pmp_probe_reserved(hfeatures->pmp_count);
+
 	/**
 	 * Detect the allowed address bits & granularity. At least PMPADDR0
 	 * should be implemented.
