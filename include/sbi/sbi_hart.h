@@ -65,12 +65,13 @@ enum sbi_hart_extensions {
  * unmapped. sbi_hart_map_saddr/sbi_hart_unmap_saddr function
  * pair should be used to map/unmap the shared memory.
  */
-#define SBI_SMEPMP_RESV_ENTRY		0
+#define SBI_SMEPMP_RESV_ENTRY		sbi_hart_pmp_reserved(scratch)
 
 struct sbi_hart_features {
 	bool detected;
 	int priv_version;
 	unsigned long extensions[BITS_TO_LONGS(SBI_HART_EXT_MAX)];
+	unsigned int pmp_reserved;
 	unsigned int pmp_count;
 	unsigned int pmp_addr_bits;
 	unsigned long pmp_gran;
@@ -92,6 +93,7 @@ static inline ulong sbi_hart_expected_trap_addr(void)
 unsigned int sbi_hart_mhpm_mask(struct sbi_scratch *scratch);
 void sbi_hart_delegation_dump(struct sbi_scratch *scratch,
 			      const char *prefix, const char *suffix);
+unsigned int sbi_hart_pmp_reserved(struct sbi_scratch *scratch);
 unsigned int sbi_hart_pmp_count(struct sbi_scratch *scratch);
 unsigned long sbi_hart_pmp_granularity(struct sbi_scratch *scratch);
 unsigned int sbi_hart_pmp_addrbits(struct sbi_scratch *scratch);

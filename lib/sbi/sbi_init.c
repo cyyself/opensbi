@@ -174,6 +174,8 @@ static void sbi_boot_print_hart(struct sbi_scratch *scratch, u32 hartid)
 	sbi_printf("Boot HART Base ISA        : %s\n", str);
 	sbi_hart_get_extensions_str(scratch, str, sizeof(str));
 	sbi_printf("Boot HART ISA Extensions  : %s\n", str);
+	sbi_printf("Boot HART PMP Reserved    : %d\n",
+		   sbi_hart_pmp_reserved(scratch));
 	sbi_printf("Boot HART PMP Count       : %d\n",
 		   sbi_hart_pmp_count(scratch));
 	sbi_printf("Boot HART PMP Granularity : %lu\n",
