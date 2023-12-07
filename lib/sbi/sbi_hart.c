@@ -868,6 +868,9 @@ static int hart_detect_features(struct sbi_scratch *scratch)
 	__check_csr_32(__csr + 0, __rdonly, __wrval, __field, __skip)	\
 	__check_csr_32(__csr + 32, __rdonly, __wrval, __field, __skip)
 
+	/* Detect number of PMP regions. At least PMPADDR0 should be implemented*/
+	__check_csr_64(CSR_PMPADDR0, true, 0, pmp_count, __pmp_count_probed);
+__pmp_count_probed:
 	/**
 	 * Detect the allowed address bits & granularity. At least PMPADDR0
 	 * should be implemented.
@@ -876,10 +879,7 @@ static int hart_detect_features(struct sbi_scratch *scratch)
 	if (val) {
 		hfeatures->pmp_gran =  1 << (sbi_ffs(val) + 2);
 		hfeatures->pmp_addr_bits = sbi_fls(val) + 1;
-		/* Detect number of PMP regions. At least PMPADDR0 should be implemented*/
-		__check_csr_64(CSR_PMPADDR0, true, 0, pmp_count, __pmp_skip);
 	}
-__pmp_skip:
 	/* Detect number of MHPM counters */
 	__check_hpm_csr(CSR_MHPMCOUNTER3, mhpm_mask);
 	hfeatures->mhpm_bits = hart_mhpm_get_allowed_bits();
