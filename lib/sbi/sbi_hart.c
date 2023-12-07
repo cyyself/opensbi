@@ -259,6 +259,14 @@ unsigned int sbi_hart_mhpm_mask(struct sbi_scratch *scratch)
 	return hfeatures->mhpm_mask;
 }
 
+unsigned int sbi_hart_pmp_reserved(struct sbi_scratch *scratch)
+{
+	struct sbi_hart_features *hfeatures =
+			sbi_scratch_offset_ptr(scratch, hart_features_offset);
+
+	return hfeatures->pmp_reserved;
+}
+
 unsigned int sbi_hart_pmp_count(struct sbi_scratch *scratch)
 {
 	struct sbi_hart_features *hfeatures =
@@ -393,7 +401,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
 	pmp_disable(SBI_SMEPMP_RESV_ENTRY);
 
 	/* Program M-only regions when MML is not set. */
-	pmp_idx = 0;
+	pmp_idx = sbi_hart_pmp_reserved(scratch);
 	sbi_domain_for_each_memregion(dom, reg) {
 		/* Skip reserved entry */
 		if (pmp_idx == SBI_SMEPMP_RESV_ENTRY)
@@ -419,7 +427,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
 	csr_set(CSR_MSECCFG, MSECCFG_MML);
 
 	/* Program shared and SU-only regions */
-	pmp_idx = 0;
+	pmp_idx = sbi_hart_pmp_reserved(scratch);
 	sbi_domain_for_each_memregion(dom, reg) {
 		/* Skip reserved entry */
 		if (pmp_idx == SBI_SMEPMP_RESV_ENTRY)
@@ -456,7 +464,7 @@ static int sbi_hart_oldpmp_configure(struct sbi_scratch *scratch,
 {
 	struct sbi_domain_memregion *reg;
 	struct sbi_domain *dom = sbi_domain_thishart_ptr();
-	unsigned int pmp_idx = 0;
+	unsigned int pmp_idx = sbi_hart_pmp_reserved(scratch);
 	unsigned int pmp_flags;
 	unsigned long pmp_addr;
 
@@ -741,23 +749,51 @@ void sbi_hart_get_extensions_str(struct sbi_scratch *scratch,
 		sbi_strncpy(extensions_str, "none", nestr);
 }
 
-static unsigned long hart_pmp_get_allowed_addr(void)
+static unsigned long hart_pmp_probe_reserved(unsigned int nr_pmps)
 {
-	unsigned long val = 0;
-	struct sbi_trap_info trap = {0};
+	unsigned long pmpcfg;
+	int n, pmpcfg_csr_idx = -1;
+	int pmpcfg_csr, pmpcfg_shift;
+	int pmpcfg_locked = 0;
 
-	csr_write_allowed(CSR_PMPCFG0, (ulong)&trap, 0);
-	if (trap.cause)
-		return 0;
+	/**
+	 * It is assumed that the the index of PMPs which are locked
+	 * before OpenSBI starts are consecutive numbers starts from
+	 * 0. 
+	 */
+	
+	for (n = 0; n < nr_pmps; n++) {
+		/* calculate PMP register and offset */
+#if __riscv_xlen == 32
+		pmpcfg_csr   = CSR_PMPCFG0 + (n >> 2);
+		pmpcfg_shift = (n & 3) << 3;
+#elif __riscv_xlen == 64
+		pmpcfg_csr   = (CSR_PMPCFG0 + (n >> 2)) & ~1;
+		pmpcfg_shift = (n & 7) << 3;
+#else
+# error "Unexpected __riscv_xlen"
+#endif
 
-	csr_write_allowed(CSR_PMPADDR0, (ulong)&trap, PMP_ADDR_MASK);
-	if (!trap.cause) {
-		val = csr_read_allowed(CSR_PMPADDR0, (ulong)&trap);
-		if (trap.cause)
-			val = 0;
+		/* Load a new PMPCFG from CSR */
+		if (pmpcfg_csr != pmpcfg_csr_idx) {
+			pmpcfg = csr_read_num(pmpcfg_csr);
+		}
+
+		/* Check pmpcfg[n] Lock Status */
+		if ( (pmpcfg >> pmpcfg_shift) & PMP_L) {
+			pmpcfg_locked ++;
+		} else {
+			break;
+		}
 	}
 
-	return val;
+	return pmpcfg_locked;
+}
+
+static unsigned long hart_pmp_get_allowed_addr(unsigned int n)
+{
+	csr_write_num(CSR_PMPADDR0 + n, PMP_ADDR_MASK);
+	return csr_read_num(CSR_PMPADDR0 + n);
 }
 
 static int hart_mhpm_get_allowed_bits(void)
@@ -868,18 +904,26 @@ static int hart_detect_features(struct sbi_scratch *scratch)
 	__check_csr_32(__csr + 0, __rdonly, __wrval, __field, __skip)	\
 	__check_csr_32(__csr + 32, __rdonly, __wrval, __field, __skip)
 
+	/* Detect number of PMP regions. At least PMPADDR0 should be implemented*/
+	__check_csr_64(CSR_PMPADDR0, 0, 0, pmp_count, __nr_pmp_probed);
+__nr_pmp_probed:
+
+	/**
+	 * Detect how many PMPs are locked before OpenSBI starts. These
+	 * PMPs are characterized as reserved and cannot be used by OpenSBI.
+	 */
+	hfeatures->pmp_reserved = hart_pmp_probe_reserved(hfeatures->pmp_count);
+
 	/**
 	 * Detect the allowed address bits & granularity. At least PMPADDR0
 	 * should be implemented.
 	 */
-	val = hart_pmp_get_allowed_addr();
+	val = hart_pmp_get_allowed_addr(hfeatures->pmp_reserved);
 	if (val) {
 		hfeatures->pmp_gran =  1 << (sbi_ffs(val) + 2);
 		hfeatures->pmp_addr_bits = sbi_fls(val) + 1;
-		/* Detect number of PMP regions. At least PMPADDR0 should be implemented*/
-		__check_csr_64(CSR_PMPADDR0, 0, val, pmp_count, __pmp_skip);
 	}
-__pmp_skip:
+
 	/* Detect number of MHPM counters */
 	__check_hpm_csr(CSR_MHPMCOUNTER3, mhpm_mask);
 	hfeatures->mhpm_bits = hart_mhpm_get_allowed_bits();
