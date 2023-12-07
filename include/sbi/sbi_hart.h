@@ -65,7 +65,7 @@ enum sbi_hart_extensions {
  * unmapped. sbi_hart_map_saddr/sbi_hart_unmap_saddr function
  * pair should be used to map/unmap the shared memory.
  */
-#define SBI_SMEPMP_RESV_ENTRY		0
+#define SBI_SMEPMP_RESV_ENTRY		sbi_hart_pmp_reserved(scratch)
 
 struct sbi_hart_features {
 	bool detected;
