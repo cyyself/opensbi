@@ -784,23 +784,10 @@ static unsigned long hart_pmp_probe_reserved(unsigned int nr_pmps)
 	return pmpcfg_locked;
 }
 
-static unsigned long hart_pmp_get_allowed_addr(void)
+static unsigned long hart_pmp_get_allowed_addr(unsigned int n)
 {
-	unsigned long val = 0;
-	struct sbi_trap_info trap = {0};
-
-	csr_write_allowed(CSR_PMPCFG0, (ulong)&trap, 0);
-	if (trap.cause)
-		return 0;
-
-	csr_write_allowed(CSR_PMPADDR0, (ulong)&trap, PMP_ADDR_MASK);
-	if (!trap.cause) {
-		val = csr_read_allowed(CSR_PMPADDR0, (ulong)&trap);
-		if (trap.cause)
-			val = 0;
-	}
-
-	return val;
+	csr_write_num(CSR_PMPADDR0 + n, PMP_ADDR_MASK);
+	return csr_read_num(CSR_PMPADDR0 + n);
 }
 
 static int hart_mhpm_get_allowed_bits(void)
@@ -926,10 +913,12 @@ __pmp_count_probed:
 	 * Detect the allowed address bits & granularity. At least PMPADDR0
 	 * should be implemented.
 	 */
-	val = hart_pmp_get_allowed_addr();
-	if (val) {
-		hfeatures->pmp_gran =  1 << (sbi_ffs(val) + 2);
-		hfeatures->pmp_addr_bits = sbi_fls(val) + 1;
+	if (hfeatures->pmp_reserved != hfeatures->pmp_count) {
+		val = hart_pmp_get_allowed_addr(hfeatures->pmp_reserved);
+		if (val) {
+			hfeatures->pmp_gran =  1 << (sbi_ffs(val) + 2);
+			hfeatures->pmp_addr_bits = sbi_fls(val) + 1;
+		}
 	}
 	/* Detect number of MHPM counters */
 	__check_hpm_csr(CSR_MHPMCOUNTER3, mhpm_mask);
