@@ -831,7 +831,7 @@ static int hart_detect_features(struct sbi_scratch *scratch)
 		hfeatures->pmp_log2gran = sbi_ffs(val) + 2;
 		hfeatures->pmp_addr_bits = sbi_fls(val) + 1;
 		/* Detect number of PMP regions. At least PMPADDR0 should be implemented*/
-		__check_csr_64(CSR_PMPADDR0, 0, val, pmp_count, __pmp_skip);
+		__check_csr_64(CSR_PMPADDR0, true, 0, pmp_count, __pmp_skip);
 	}
 __pmp_skip:
 	/* Detect number of MHPM counters */
