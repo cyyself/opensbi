@@ -460,6 +460,12 @@ static int sbi_hart_oldpmp_configure(struct sbi_scratch *scratch,
 	unsigned int pmp_flags;
 	unsigned long pmp_addr;
 
+	asm volatile("csrw pmpaddr2, %0" : : "r" (0x1fffffffff)); // napot 1TB. T-Head does not support all 1 address in napot
+	asm volatile("csrs pmpcfg0, %0" : : "r" (((3<<3) | 7) << (2*8))); // 7->rwx (3<<3)->a:napot
+
+	return 0;
+
+
 	sbi_domain_for_each_memregion(dom, reg) {
 		if (pmp_count <= pmp_idx)
 			break;
