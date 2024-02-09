@@ -757,7 +757,7 @@ memcmp:
 	.globl _trap_handler
 	.globl _trap_exit
 _trap_handler:
-	sfence.vma	zero, t0
+	sfence.vma
 
 	TRAP_SAVE_AND_SETUP_SP_T0
 
