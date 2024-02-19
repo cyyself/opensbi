@@ -53,6 +53,7 @@ static int sophgo_sg2042_extensions_init(const struct fdt_match *match,
 
 static const struct fdt_match sophgo_sg2042_match[] = {
 	{ .compatible = "sophgo,sg2042" },
+	{ .compatible = "sophgo,mango" },
 	{ },
 };
 
